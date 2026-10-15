@@ -6,91 +6,242 @@
 <title>五方会诊 · 5 AI 共识</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #ffffff; --side: #f9f9fb; --line: #e8e8f0;
+    --txt: #1f1f2e; --sub: #6f6f8a; --pri: #6a5af9; --pri2: #9b5de5;
+  }
   body {
     font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
-    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-    min-height: 100vh; color: #e8e8f0; padding: 24px 14px 60px;
+    background: var(--bg); color: var(--txt); height: 100vh; overflow: hidden;
   }
-  .wrap { max-width: 720px; margin: 0 auto; }
-  h1 { font-size: 26px; text-align: center; letter-spacing: 2px; }
-  .sub { text-align: center; color: #9a97c9; font-size: 13px; margin: 8px 0 24px; }
-  .card {
-    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
-    border-radius: 14px; padding: 16px; backdrop-filter: blur(8px); margin-bottom: 18px;
+  .app { display: flex; height: 100vh; }
+
+  /* ---------- 侧边栏 ---------- */
+  .side {
+    width: 264px; background: var(--side); border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; flex-shrink: 0;
   }
-  input, textarea {
-    width: 100%; background: rgba(0,0,0,.3); border: 1px solid rgba(255,255,255,.15);
-    border-radius: 10px; color: #fff; padding: 12px 14px; font-size: 15px;
-    margin-bottom: 10px; outline: none; resize: vertical; font-family: inherit;
+  .side-head { padding: 16px 16px 8px; font-size: 17px; font-weight: 700; }
+  .side-head small { display: block; font-size: 11px; color: var(--sub); font-weight: 400; margin-top: 2px; }
+  .new-chat {
+    margin: 8px 14px; padding: 11px; border: none; border-radius: 12px;
+    background: linear-gradient(90deg, #eceaff, #f3e8ff); color: var(--pri);
+    font-size: 14px; font-weight: 600; cursor: pointer; text-align: left;
   }
-  input:focus, textarea:focus { border-color: #7b6cf0; }
-  button {
-    width: 100%; padding: 13px; font-size: 16px; font-weight: 600; border: none;
-    border-radius: 10px; cursor: pointer; color: #fff;
-    background: linear-gradient(90deg, #6a5af9, #9b5de5); transition: opacity .2s;
+  .new-chat:hover { filter: brightness(.97); }
+  .side-label { padding: 10px 18px 4px; font-size: 12px; color: var(--sub); }
+  .conv-list { flex: 1; overflow-y: auto; padding: 0 8px; }
+  .conv-item {
+    position: relative; padding: 9px 12px; margin: 2px 0; border-radius: 10px;
+    font-size: 13.5px; color: #44445c; cursor: pointer; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
   }
-  button:disabled { opacity: .5; cursor: not-allowed; }
-  .models { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-  .chip {
-    width: auto; padding: 7px 13px; font-size: 13px; font-weight: 500;
-    border-radius: 999px; border: 1px solid rgba(255,255,255,.2);
-    background: rgba(255,255,255,.05); color: #8f8bb8; transition: all .15s;
+  .conv-item:hover { background: #efeff6; }
+  .conv-item.active { background: #e7e4fb; color: var(--pri); font-weight: 600; }
+  .conv-item .del {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    display: none; border: none; background: #dcd8f5; color: #555;
+    border-radius: 6px; width: 20px; height: 20px; cursor: pointer; font-size: 12px;
   }
-  .chip.on { background: linear-gradient(90deg, #6a5af9, #9b5de5); color: #fff; border-color: transparent; }
-  .chip.all { background: transparent; border-style: dashed; }
-  .chip .cdot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; }
-  .hist-line { font-size: 12px; color: #9a97c9; margin: -4px 0 12px; display: flex; align-items: center; gap: 8px; }
-  .hist-line b { color: #cfcde8; }
-  .chip.mini { padding: 2px 10px; font-size: 12px; }
-  .status { text-align: center; color: #b9b6e8; font-size: 13px; padding: 8px 0 2px; }
-  .hidden { display: none !important; }
+  .conv-item:hover .del { display: block; }
+  .side-foot { padding: 12px 14px; border-top: 1px solid var(--line); }
+  .side-foot input {
+    width: 100%; border: 1px solid var(--line); border-radius: 10px;
+    padding: 9px 12px; font-size: 13px; outline: none; background: #fff;
+  }
+
+  /* ---------- 主区域 ---------- */
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .topbar {
+    display: none; padding: 10px 14px; border-bottom: 1px solid var(--line);
+    align-items: center; gap: 10px;
+  }
+  .hero {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 8px;
+    background: radial-gradient(ellipse at 50% 30%, #eef4ff 0%, #ffffff 70%);
+  }
+  .hero h1 { font-size: 26px; font-weight: 500; color: #33334d; }
+  .hero p { font-size: 13px; color: var(--sub); }
+
+  .chat { flex: 1; overflow-y: auto; padding: 20px 0; display: none; }
+  .chat.on { display: block; }
+  .msg { max-width: 860px; margin: 0 auto; padding: 10px 20px; }
+  .bubble {
+    padding: 12px 16px; border-radius: 18px; font-size: 14.5px;
+    line-height: 1.75; white-space: pre-wrap; word-break: break-word;
+  }
+  .msg.user .bubble {
+    background: linear-gradient(90deg, var(--pri), var(--pri2)); color: #fff;
+    margin-left: auto; max-width: 78%; border-bottom-right-radius: 6px;
+  }
+  .msg.user { display: flex; }
+  .msg.ai .bubble {
+    background: #f4f4f9; border-bottom-left-radius: 6px;
+  }
+  .file-tag {
+    display: inline-block; background: rgba(255,255,255,.25); border-radius: 8px;
+    padding: 3px 10px; font-size: 12px; margin-bottom: 6px;
+  }
+  .msg.ai .file-tag { background: #e6e6f2; color: #555; }
   .consensus {
-    background: rgba(76, 217, 160, .1); border: 1px solid rgba(76, 217, 160, .35);
-    border-radius: 14px; padding: 16px; margin-bottom: 18px; white-space: pre-wrap;
-    font-size: 14px; line-height: 1.75;
+    background: #eafaf2; border: 1px solid #bfe8d4; border-radius: 12px;
+    padding: 12px 14px; margin-bottom: 12px; font-size: 14px; white-space: pre-wrap;
   }
-  .consensus .tag { color: #4cd9a0; font-weight: 700; display: block; margin-bottom: 6px; }
-  .model-card {
-    background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
-    border-radius: 12px; padding: 14px 16px; margin-bottom: 12px;
+  .consensus .tag { color: #159a5f; font-weight: 700; display: block; margin-bottom: 4px; }
+  details.model-detail { margin-top: 8px; border-top: 1px dashed var(--line); padding-top: 8px; }
+  details.model-detail summary {
+    cursor: pointer; font-size: 13px; color: var(--sub); font-weight: 600; list-style: none;
   }
-  .model-card .name { font-weight: 700; font-size: 14px; margin-bottom: 6px; }
-  .model-card .name .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; }
-  .model-card .ans { font-size: 14px; line-height: 1.7; color: #cfcde8; white-space: pre-wrap; word-break: break-word; }
-  .model-card.missing { opacity: .55; border-style: dashed; }
-  .model-card.missing .ans { color: #8f8bb8; font-style: italic; }
-  .foot { text-align: center; color: #6f6ca0; font-size: 12px; margin-top: 22px; }
+  details.model-detail summary::before { content: "▸ "; }
+  details.model-detail[open] summary::before { content: "▾ "; }
+  .model-ans { margin-top: 8px; font-size: 13.5px; color: #3a3a52; white-space: pre-wrap; }
+  .absent { font-size: 12px; color: #a0a0b8; margin-top: 8px; }
+  .cdot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; }
+
+  /* ---------- 输入区 ---------- */
+  .composer { max-width: 860px; margin: 0 auto; width: 100%; padding: 10px 20px 18px; }
+  .chips-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .chip {
+    padding: 5px 12px; font-size: 12px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--line); background: #fff; color: var(--sub); font-weight: 500;
+  }
+  .chip.on { background: #efecff; color: var(--pri); border-color: #c9c0f7; }
+  .chip.all { border-style: dashed; }
+  .file-chip {
+    display: inline-flex; align-items: center; gap: 8px; background: #f0eeff;
+    color: #555; border-radius: 10px; padding: 5px 12px; font-size: 12.5px; margin-bottom: 8px;
+  }
+  .file-chip button { border: none; background: none; cursor: pointer; color: #999; font-size: 14px; }
+  .input-row {
+    display: flex; align-items: flex-end; gap: 8px;
+    border: 1px solid var(--line); border-radius: 24px; padding: 8px 10px;
+    background: #fff; box-shadow: 0 2px 14px rgba(80,70,180,.06);
+  }
+  .plus-btn {
+    width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line);
+    background: #fff; font-size: 20px; cursor: pointer; color: #555; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .plus-btn:hover { background: #f4f2ff; }
+  #q {
+    flex: 1; border: none; outline: none; resize: none; font-size: 15px;
+    font-family: inherit; line-height: 1.5; max-height: 140px; background: transparent;
+  }
+  .send-btn {
+    width: 40px; height: 36px; border-radius: 18px; border: none; flex-shrink: 0;
+    background: linear-gradient(90deg, var(--pri), var(--pri2)); color: #fff;
+    font-size: 15px; cursor: pointer;
+  }
+  .send-btn:disabled { opacity: .5; }
+  .status { text-align: center; font-size: 12.5px; color: var(--sub); padding-top: 8px; }
+  .hidden { display: none !important; }
+
+  @media (max-width: 768px) {
+    .side { position: fixed; z-index: 20; height: 100vh; left: -280px; transition: left .2s; box-shadow: 0 0 24px rgba(0,0,0,.15); }
+    .side.open { left: 0; }
+    .topbar { display: flex; }
+    .hero h1 { font-size: 21px; }
+    .msg { padding: 8px 12px; }
+    .composer { padding: 8px 12px 14px; }
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>🩺 五方会诊</h1>
-  <p class="sub">Kimi · GPT · Gemini · 豆包 · 千问 —— 同时思考，给您五方认同的答案</p>
+<div class="app">
+  <aside class="side" id="side">
+    <div class="side-head">🩺 五方会诊<small>Kimi · GPT · Gemini · 豆包 · 千问</small></div>
+    <button class="new-chat" onclick="newChat()">＋ 发起新对话</button>
+    <div class="side-label">历史对话</div>
+    <div class="conv-list" id="convList"></div>
+    <div class="side-foot">
+      <input id="pwd" type="password" placeholder="访问密码（首次输入，本机记住）">
+    </div>
+  </aside>
 
-  <div class="card">
-    <input id="pwd" type="password" placeholder="访问密码（首次使用输入，本机自动记住）">
-    <textarea id="q" rows="4" placeholder="输入您的问题，例如：大学生该不该买平板代替笔记本？"></textarea>
-    <div class="models" id="models"></div>
-    <div class="hist-line hidden" id="histLine">💬 已记住 <b id="histCount">0</b> 轮对话（仅本机） <button type="button" class="chip mini" onclick="clearHist()">清空记忆</button></div>
-    <button id="go" onclick="consult()">发起会诊</button>
-    <div id="status" class="status hidden"></div>
-  </div>
-
-  <div id="consensus" class="consensus hidden"></div>
-  <div id="cards"></div>
-
-  <div class="foot">五方会诊 · 各家回答由对应官方 API 生成 · 结果仅供参考</div>
+  <main class="main">
+    <div class="topbar">
+      <button class="plus-btn" onclick="document.getElementById('side').classList.toggle('open')">☰</button>
+      <b>五方会诊</b>
+    </div>
+    <div class="hero" id="hero">
+      <h1>需要我为你做些什么？</h1>
+      <p>可上传文件（txt / pdf / docx / md / 代码…），可勾选任意几家模型</p>
+    </div>
+    <div class="chat" id="chat"></div>
+    <div class="composer">
+      <div class="file-chip hidden" id="fileChip"></div>
+      <div class="chips-row" id="models"></div>
+      <div class="input-row">
+        <label class="plus-btn" title="上传文件">＋
+          <input type="file" id="fileInput" hidden onchange="onFilePicked(event)">
+        </label>
+        <textarea id="q" rows="1" placeholder="输入您的问题…（Enter 发送，Shift+Enter 换行）"
+                  onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send();}"
+                  oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,140)+'px'"></textarea>
+        <button class="send-btn" id="go" onclick="send()">➤</button>
+      </div>
+      <div id="status" class="status hidden"></div>
+    </div>
+  </main>
 </div>
 
 <script>
+const API = "https://five-ai-consult-telszxyhbo.ap-southeast-1.fcapp.run/";
 const COLORS = { "Kimi": "#4cd9a0", "GPT": "#74a9f7", "Gemini": "#f7b06b", "豆包": "#9b5de5", "千问": "#5bc8e8" };
 const ORDER = ["Kimi", "GPT", "Gemini", "豆包", "千问"];
-
-// 模型勾选状态（默认全选）
+const LS_CONVS = "five_ai_convs", LS_ACTIVE = "five_ai_active";
 const modelState = {};
 for (const n of ORDER) modelState[n] = true;
 
-function buildModelChips() {
+/* ===== 数据：多对话 + 本地存储 ===== */
+function loadConvs() {
+  try { const c = JSON.parse(localStorage.getItem(LS_CONVS) || "[]"); return Array.isArray(c) ? c : []; }
+  catch (e) { return []; }
+}
+function saveConvs() { localStorage.setItem(LS_CONVS, JSON.stringify(convs.slice(0, 50))); }
+let convs = loadConvs();
+let activeId = localStorage.getItem(LS_ACTIVE) || "";
+if (!convs.find(c => c.id === activeId)) { activeId = convs.length ? convs[0].id : ""; }
+
+function activeConv() { return convs.find(c => c.id === activeId); }
+
+function newChat() {
+  const c = { id: "c" + Date.now(), title: "新对话", ts: Date.now(), msgs: [] };
+  convs.unshift(c); activeId = c.id;
+  localStorage.setItem(LS_ACTIVE, activeId);
+  saveConvs(); renderConvList(); renderChat();
+  document.getElementById("side").classList.remove("open");
+  document.getElementById("q").focus();
+}
+function switchConv(id) {
+  activeId = id; localStorage.setItem(LS_ACTIVE, id);
+  renderConvList(); renderChat();
+  document.getElementById("side").classList.remove("open");
+}
+function delConv(id, ev) {
+  ev.stopPropagation();
+  if (!confirm("删除这段对话？")) return;
+  convs = convs.filter(c => c.id !== id);
+  if (activeId === id) activeId = convs.length ? convs[0].id : "";
+  localStorage.setItem(LS_ACTIVE, activeId);
+  saveConvs(); renderConvList(); renderChat();
+}
+function renderConvList() {
+  const box = document.getElementById("convList");
+  box.innerHTML = "";
+  for (const c of convs) {
+    const div = document.createElement("div");
+    div.className = "conv-item" + (c.id === activeId ? " active" : "");
+    div.onclick = () => switchConv(c.id);
+    div.innerHTML = esc(c.title).slice(0, 24)
+      + '<button class="del" onclick="delConv(\'' + c.id + '\', event)">×</button>';
+    box.appendChild(div);
+  }
+}
+
+/* ===== 模型勾选 chips ===== */
+function buildChips() {
   const box = document.getElementById("models");
   box.innerHTML = "";
   for (const n of ORDER) {
@@ -98,140 +249,187 @@ function buildModelChips() {
     chip.type = "button";
     chip.className = "chip" + (modelState[n] ? " on" : "");
     chip.innerHTML = '<span class="cdot" style="background:' + COLORS[n] + '"></span>' + n;
-    chip.onclick = () => { modelState[n] = !modelState[n]; buildModelChips(); };
+    chip.onclick = () => { modelState[n] = !modelState[n]; buildChips(); };
     box.appendChild(chip);
   }
   const all = document.createElement("button");
-  all.type = "button";
-  all.className = "chip all";
-  all.textContent = "全选";
-  all.onclick = () => { for (const n of ORDER) modelState[n] = true; buildModelChips(); };
+  all.type = "button"; all.className = "chip all"; all.textContent = "全选";
+  all.onclick = () => { for (const n of ORDER) modelState[n] = true; buildChips(); };
   box.appendChild(all);
 }
+function selectedModels() { return ORDER.filter(n => modelState[n]); }
+buildChips();
 
-function selectedModels() {
-  return ORDER.filter(n => modelState[n]);
+/* ===== 文件上传（前端提取文本） ===== */
+let pendingFile = null;
+const TEXT_EXT = ["txt","md","markdown","csv","json","js","ts","jsx","tsx","py","java","c","cpp","h","hpp","html","css","xml","yml","yaml","sql","tex","rtf","log","ini","sh","bat","go","rs","php"];
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
 }
-
-// ===== 对话记忆（存浏览器本地，仅本机可见，最多8轮）=====
-const HKEY = "five_ai_hist";
-function getHist() {
+async function extractFile(file) {
+  const ext = file.name.toLowerCase().split(".").pop();
+  if (TEXT_EXT.includes(ext)) {
+    const t = await file.text();
+    if (!t.trim()) throw new Error("文件内容为空");
+    return t.slice(0, 8000);
+  }
+  if (ext === "pdf") {
+    if (!window.pdfjsLib) {
+      await loadScript("https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js");
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+    }
+    const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+    let out = "";
+    for (let i = 1; i <= Math.min(pdf.numPages, 12); i++) {
+      const page = await pdf.getPage(i);
+      const tc = await page.getTextContent();
+      out += tc.items.map(it => it.str).join(" ") + "\n";
+    }
+    if (!out.trim()) throw new Error("PDF 里没有可提取的文字（可能是扫描件）");
+    return out.slice(0, 8000);
+  }
+  if (ext === "docx") {
+    if (!window.mammoth) await loadScript("https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js");
+    const res = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+    if (!res.value.trim()) throw new Error("文档里没有可提取的文字");
+    return res.value.slice(0, 8000);
+  }
+  throw new Error("暂不支持的格式（支持 txt/md/pdf/docx/csv/json/代码文件）");
+}
+async function onFilePicked(ev) {
+  const file = ev.target.files[0];
+  ev.target.value = "";
+  if (!file) return;
+  if (file.size > 20 * 1024 * 1024) { alert("文件太大（限 20MB）"); return; }
+  setStatus("正在解析文件…");
   try {
-    const h = JSON.parse(localStorage.getItem(HKEY) || "[]");
-    return Array.isArray(h) ? h : [];
-  } catch (e) { return []; }
+    const text = await extractFile(file);
+    pendingFile = { name: file.name, text };
+    const chip = document.getElementById("fileChip");
+    chip.innerHTML = "📎 " + esc(file.name) + "（" + file.size + " 字节）<button onclick=\"pendingFile=null;document.getElementById('fileChip').classList.add('hidden')\">×</button>";
+    chip.classList.remove("hidden");
+    setStatus(null);
+  } catch (e) {
+    alert("文件解析失败：" + e.message);
+    setStatus(null);
+  }
 }
-function saveHist(h) {
-  localStorage.setItem(HKEY, JSON.stringify(h.slice(-8)));
-  updateHistLine();
-}
-function clearHist() {
-  localStorage.removeItem(HKEY);
-  updateHistLine();
-  setStatus("记忆已清空");
-}
-function updateHistLine() {
-  const n = getHist().length;
-  document.getElementById("histCount").textContent = n;
-  document.getElementById("histLine").classList.toggle("hidden", n === 0);
-}
-updateHistLine();
 
-buildModelChips();
-
-// 记住密码
+/* ===== 工具 ===== */
+function esc(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function setStatus(t) {
+  const s = document.getElementById("status");
+  if (t) { s.textContent = t; s.classList.remove("hidden"); } else s.classList.add("hidden");
+}
 const pwdEl = document.getElementById("pwd");
 pwdEl.value = localStorage.getItem("five_ai_pwd") || "";
 
-function setStatus(t) {
-  const s = document.getElementById("status");
-  if (t) { s.textContent = t; s.classList.remove("hidden"); }
-  else s.classList.add("hidden");
-}
-
-function esc(s) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function render(data) {
-  const c = document.getElementById("consensus");
-  if (data.consensus) {
-    c.innerHTML = '<span class="tag">✅ 五方会诊结论</span>' + esc(data.consensus);
-    c.classList.remove("hidden");
-  } else c.classList.add("hidden");
-
-  const cards = document.getElementById("cards");
-  cards.innerHTML = "";
-  for (const name of ORDER) {
-    const div = document.createElement("div");
-    const color = COLORS[name] || "#888";
-    if (data.answers[name]) {
-      div.className = "model-card";
-      div.innerHTML = '<div class="name"><span class="dot" style="background:' + color + '"></span>' + name + '</div>'
-                    + '<div class="ans">' + esc(data.answers[name]) + '</div>';
-    } else {
-      div.className = "model-card missing";
-      const err = (data.errors && data.errors[name]) || "未返回";
-      div.innerHTML = '<div class="name"><span class="dot" style="background:#666"></span>' + name + ' · 缺席</div>'
-                    + '<div class="ans">本次未参与：' + esc(err.slice(0, 120)) + '</div>';
-    }
-    cards.appendChild(div);
+/* ===== 消息渲染 ===== */
+function renderChat() {
+  const conv = activeConv();
+  const chat = document.getElementById("chat");
+  const hero = document.getElementById("hero");
+  if (!conv || conv.msgs.length === 0) {
+    chat.classList.remove("on"); hero.style.display = "flex"; chat.innerHTML = ""; return;
   }
+  hero.style.display = "none"; chat.classList.add("on");
+  chat.innerHTML = "";
+  for (const m of conv.msgs) {
+    const wrap = document.createElement("div");
+    wrap.className = "msg " + (m.role === "user" ? "user" : "ai");
+    const b = document.createElement("div");
+    b.className = "bubble";
+    if (m.role === "user") {
+      b.innerHTML = (m.file ? '<span class="file-tag">📎 ' + esc(m.file) + '</span><br>' : "") + esc(m.content);
+    } else {
+      let html = "";
+      if (m.consensus) html += '<div class="consensus"><span class="tag">✅ 会诊结论</span>' + esc(m.consensus) + '</div>';
+      for (const n of ORDER) {
+        if (m.answers && m.answers[n]) {
+          html += '<details class="model-detail"><summary><span class="cdot" style="background:' + COLORS[n] + '"></span>' + n + '</summary><div class="model-ans">' + esc(m.answers[n]) + '</div></details>';
+        }
+      }
+      if (m.errors) {
+        for (const n of ORDER) {
+          if (m.errors[n]) html += '<div class="absent">⚠️ ' + n + ' 缺席：' + esc(String(m.errors[n]).slice(0, 60)) + '</div>';
+        }
+      }
+      b.innerHTML = html || "（无内容）";
+    }
+    wrap.appendChild(b);
+    chat.appendChild(wrap);
+  }
+  chat.scrollTop = chat.scrollHeight;
 }
 
-async function consult() {
+/* ===== 发送 ===== */
+async function send() {
   const password = pwdEl.value.trim();
   const question = document.getElementById("q").value.trim();
   if (!password) { alert("请输入访问密码"); return; }
-  if (!question) { alert("请输入问题"); return; }
+  if (!question && !pendingFile) { alert("请输入问题或上传文件"); return; }
+  const picks = selectedModels();
+  if (!picks.length) { alert("请至少勾选一家模型"); return; }
 
   localStorage.setItem("five_ai_pwd", password);
-  const btn = document.getElementById("go");
-  btn.disabled = true; btn.textContent = "五家思考中…";
-  const picks = selectedModels();
-  setStatus("正在询问 " + picks.join(" / ") + "，约需 10–120 秒，请稍候…");
-  document.getElementById("cards").innerHTML = "";
-  document.getElementById("consensus").classList.add("hidden");
+  if (!activeConv()) newChat();
+  const conv = activeConv();
 
-  try {
-    // 前端托管在 GitHub Pages，API 在阿里云函数计算（跨域 + CORS 已配置）
-    const API = "https://five-ai-consult-telszxyhbo.ap-southeast-1.fcapp.run/";
-    // 网关对非 ASCII 正文有解码问题：将 JSON 中所有非 ASCII 字符转成 \uXXXX 转义（纯 ASCII 字节传输）
-    const payload = JSON.stringify({ password, question, models: selectedModels(), history: getHist() })
-      .replace(/[\u007f-\uffff]/g, c => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
-    let data = null, lastErr = null;
-    for (let attempt = 1; attempt <= 2 && !data; attempt++) {
-      try {
-        const resp = await fetch(API, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: payload,
-        });
-        const d = await resp.json();
-        if (!resp.ok) { alert(d.error || ("请求失败 HTTP " + resp.status)); return; }
-        data = d;
-      } catch (e) {
-        lastErr = e;
-        if (attempt === 1) setStatus("网络波动，正在自动重试一次，请稍候…");
-      }
+  // 用户消息入列
+  conv.msgs.push({ role: "user", content: question || "请总结这个文件", file: pendingFile ? pendingFile.name : null });
+  if (conv.title === "新对话") conv.title = (question || pendingFile.name).slice(0, 18);
+  saveConvs(); renderConvList(); renderChat();
+  document.getElementById("q").value = ""; document.getElementById("q").style.height = "auto";
+
+  // 构造历史（最近6轮，assistant 侧取共识或首家回答）
+  const hist = [];
+  const past = conv.msgs.slice(0, -1);
+  for (let i = 0; i + 1 < past.length; i += 2) {
+    const u = past[i], a = past[i + 1];
+    if (u.role === "user" && a.role === "assistant") {
+      const firstName = ORDER.find(n => a.answers && a.answers[n]);
+      const summary = a.consensus || (firstName ? a.answers[firstName] : "");
+      if (summary) hist.push({ q: u.content.slice(0, 2000), a: summary.slice(0, 3000) });
     }
-    if (!data) { alert("网络错误：" + (lastErr ? lastErr.message : "未知") + "。请换系统浏览器（Chrome/Safari）重试。"); return; }
-    render(data);
-    // 把本轮问答写入记忆（优先存共识结论；单模型则存其回答）
-    const firstName = ORDER.find(n => data.answers && data.answers[n]);
-    const summary = data.consensus || (firstName ? data.answers[firstName] : "");
-    if (summary) {
-      const h = getHist();
-      h.push({ q: question, a: summary.slice(0, 1500) });
-      saveHist(h);
-    }
-    setStatus(null);
-  } catch (e) {
-    alert("网络错误：" + e.message);
-  } finally {
-    btn.disabled = false; btn.textContent = "发起会诊";
   }
+
+  const filePayload = pendingFile ? { name: pendingFile.name, text: pendingFile.text } : undefined;
+  pendingFile = null;
+  document.getElementById("fileChip").classList.add("hidden");
+
+  const btn = document.getElementById("go");
+  btn.disabled = true;
+  setStatus("正在询问 " + picks.join(" / ") + "，约需 10–120 秒…");
+
+  const payload = JSON.stringify({ password, question, models: picks, history: hist.slice(-6), file: filePayload })
+    .replace(/[\u007f-\uffff]/g, c => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
+
+  let data = null, lastErr = null;
+  for (let attempt = 1; attempt <= 2 && !data; attempt++) {
+    try {
+      const resp = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: payload });
+      const d = await resp.json();
+      if (!resp.ok) { alert(d.error || ("请求失败 HTTP " + resp.status)); return; }
+      data = d;
+    } catch (e) {
+      lastErr = e;
+      if (attempt === 1) setStatus("网络波动，正在自动重试一次…");
+    }
+  }
+  btn.disabled = false;
+  if (!data) { alert("网络错误：" + (lastErr ? lastErr.message : "未知") + "，请重试"); setStatus(null); return; }
+
+  conv.msgs.push({ role: "assistant", consensus: data.consensus, answers: data.answers, errors: data.errors });
+  saveConvs(); renderChat();
+  setStatus(null);
 }
+
+renderConvList(); renderChat();
 </script>
 </body>
 </html>
