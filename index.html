@@ -89,7 +89,7 @@ function esc(s) {
 function render(data) {
   const c = document.getElementById("consensus");
   if (data.consensus) {
-    c.innerHTML = '<span class="tag">✅ 五方会诊结论（Kimi 总协调）</span>' + esc(data.consensus);
+    c.innerHTML = '<span class="tag">✅ 五方会诊结论</span>' + esc(data.consensus);
     c.classList.remove("hidden");
   } else c.classList.add("hidden");
 
@@ -121,18 +121,33 @@ async function consult() {
   localStorage.setItem("five_ai_pwd", password);
   const btn = document.getElementById("go");
   btn.disabled = true; btn.textContent = "五家思考中…";
-  setStatus("正在并行询问 Kimi / GPT / Gemini / 豆包 / 千问，约需 10–60 秒");
+  setStatus("正在并行询问 Kimi / GPT / Gemini / 豆包 / 千问，约需 30–180 秒，请稍候…");
   document.getElementById("cards").innerHTML = "";
   document.getElementById("consensus").classList.add("hidden");
 
   try {
-    const resp = await fetch("/api/consult", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password, question }),
-    });
-    const data = await resp.json();
-    if (!resp.ok) { alert(data.error || ("请求失败 HTTP " + resp.status)); return; }
+    // 前端托管在 GitHub Pages，API 在阿里云函数计算（跨域 + CORS 已配置）
+    const API = "https://five-ai-consult-telszxyhbo.ap-southeast-1.fcapp.run/";
+    // 网关对非 ASCII 正文有解码问题：将 JSON 中所有非 ASCII 字符转成 \uXXXX 转义（纯 ASCII 字节传输）
+    const payload = JSON.stringify({ password, question })
+      .replace(/[\u007f-\uffff]/g, c => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
+    let data = null, lastErr = null;
+    for (let attempt = 1; attempt <= 2 && !data; attempt++) {
+      try {
+        const resp = await fetch(API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: payload,
+        });
+        const d = await resp.json();
+        if (!resp.ok) { alert(d.error || ("请求失败 HTTP " + resp.status)); return; }
+        data = d;
+      } catch (e) {
+        lastErr = e;
+        if (attempt === 1) setStatus("网络波动，正在自动重试一次，请稍候…");
+      }
+    }
+    if (!data) { alert("网络错误：" + (lastErr ? lastErr.message : "未知") + "。请换系统浏览器（Chrome/Safari）重试。"); return; }
     render(data);
     setStatus(null);
   } catch (e) {
