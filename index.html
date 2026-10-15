@@ -39,6 +39,9 @@
   .chip.on { background: linear-gradient(90deg, #6a5af9, #9b5de5); color: #fff; border-color: transparent; }
   .chip.all { background: transparent; border-style: dashed; }
   .chip .cdot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; }
+  .hist-line { font-size: 12px; color: #9a97c9; margin: -4px 0 12px; display: flex; align-items: center; gap: 8px; }
+  .hist-line b { color: #cfcde8; }
+  .chip.mini { padding: 2px 10px; font-size: 12px; }
   .status { text-align: center; color: #b9b6e8; font-size: 13px; padding: 8px 0 2px; }
   .hidden { display: none !important; }
   .consensus {
@@ -68,6 +71,7 @@
     <input id="pwd" type="password" placeholder="访问密码（首次使用输入，本机自动记住）">
     <textarea id="q" rows="4" placeholder="输入您的问题，例如：大学生该不该买平板代替笔记本？"></textarea>
     <div class="models" id="models"></div>
+    <div class="hist-line hidden" id="histLine">💬 已记住 <b id="histCount">0</b> 轮对话（仅本机） <button type="button" class="chip mini" onclick="clearHist()">清空记忆</button></div>
     <button id="go" onclick="consult()">发起会诊</button>
     <div id="status" class="status hidden"></div>
   </div>
@@ -108,6 +112,30 @@ function buildModelChips() {
 function selectedModels() {
   return ORDER.filter(n => modelState[n]);
 }
+
+// ===== 对话记忆（存浏览器本地，仅本机可见，最多8轮）=====
+const HKEY = "five_ai_hist";
+function getHist() {
+  try {
+    const h = JSON.parse(localStorage.getItem(HKEY) || "[]");
+    return Array.isArray(h) ? h : [];
+  } catch (e) { return []; }
+}
+function saveHist(h) {
+  localStorage.setItem(HKEY, JSON.stringify(h.slice(-8)));
+  updateHistLine();
+}
+function clearHist() {
+  localStorage.removeItem(HKEY);
+  updateHistLine();
+  setStatus("记忆已清空");
+}
+function updateHistLine() {
+  const n = getHist().length;
+  document.getElementById("histCount").textContent = n;
+  document.getElementById("histLine").classList.toggle("hidden", n === 0);
+}
+updateHistLine();
 
 buildModelChips();
 
@@ -169,7 +197,7 @@ async function consult() {
     // 前端托管在 GitHub Pages，API 在阿里云函数计算（跨域 + CORS 已配置）
     const API = "https://five-ai-consult-telszxyhbo.ap-southeast-1.fcapp.run/";
     // 网关对非 ASCII 正文有解码问题：将 JSON 中所有非 ASCII 字符转成 \uXXXX 转义（纯 ASCII 字节传输）
-    const payload = JSON.stringify({ password, question, models: selectedModels() })
+    const payload = JSON.stringify({ password, question, models: selectedModels(), history: getHist() })
       .replace(/[\u007f-\uffff]/g, c => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
     let data = null, lastErr = null;
     for (let attempt = 1; attempt <= 2 && !data; attempt++) {
@@ -189,6 +217,14 @@ async function consult() {
     }
     if (!data) { alert("网络错误：" + (lastErr ? lastErr.message : "未知") + "。请换系统浏览器（Chrome/Safari）重试。"); return; }
     render(data);
+    // 把本轮问答写入记忆（优先存共识结论；单模型则存其回答）
+    const firstName = ORDER.find(n => data.answers && data.answers[n]);
+    const summary = data.consensus || (firstName ? data.answers[firstName] : "");
+    if (summary) {
+      const h = getHist();
+      h.push({ q: question, a: summary.slice(0, 1500) });
+      saveHist(h);
+    }
     setStatus(null);
   } catch (e) {
     alert("网络错误：" + e.message);
