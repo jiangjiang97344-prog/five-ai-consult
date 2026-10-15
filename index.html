@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>五方会诊 · 5 AI 共识</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    min-height: 100vh; color: #e8e8f0; padding: 24px 14px 60px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 26px; text-align: center; letter-spacing: 2px; }
+  .sub { text-align: center; color: #9a97c9; font-size: 13px; margin: 8px 0 24px; }
+  .card {
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
+    border-radius: 14px; padding: 16px; backdrop-filter: blur(8px); margin-bottom: 18px;
+  }
+  input, textarea {
+    width: 100%; background: rgba(0,0,0,.3); border: 1px solid rgba(255,255,255,.15);
+    border-radius: 10px; color: #fff; padding: 12px 14px; font-size: 15px;
+    margin-bottom: 10px; outline: none; resize: vertical; font-family: inherit;
+  }
+  input:focus, textarea:focus { border-color: #7b6cf0; }
+  button {
+    width: 100%; padding: 13px; font-size: 16px; font-weight: 600; border: none;
+    border-radius: 10px; cursor: pointer; color: #fff;
+    background: linear-gradient(90deg, #6a5af9, #9b5de5); transition: opacity .2s;
+  }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .status { text-align: center; color: #b9b6e8; font-size: 13px; padding: 8px 0 2px; }
+  .hidden { display: none !important; }
+  .consensus {
+    background: rgba(76, 217, 160, .1); border: 1px solid rgba(76, 217, 160, .35);
+    border-radius: 14px; padding: 16px; margin-bottom: 18px; white-space: pre-wrap;
+    font-size: 14px; line-height: 1.75;
+  }
+  .consensus .tag { color: #4cd9a0; font-weight: 700; display: block; margin-bottom: 6px; }
+  .model-card {
+    background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
+    border-radius: 12px; padding: 14px 16px; margin-bottom: 12px;
+  }
+  .model-card .name { font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+  .model-card .name .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; }
+  .model-card .ans { font-size: 14px; line-height: 1.7; color: #cfcde8; white-space: pre-wrap; word-break: break-word; }
+  .model-card.missing { opacity: .55; border-style: dashed; }
+  .model-card.missing .ans { color: #8f8bb8; font-style: italic; }
+  .foot { text-align: center; color: #6f6ca0; font-size: 12px; margin-top: 22px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🩺 五方会诊</h1>
+  <p class="sub">Kimi · GPT · Gemini · 豆包 · 千问 —— 同时思考，给您五方认同的答案</p>
+
+  <div class="card">
+    <input id="pwd" type="password" placeholder="访问密码（首次使用输入，本机自动记住）">
+    <textarea id="q" rows="4" placeholder="输入您的问题，例如：大学生该不该买平板代替笔记本？"></textarea>
+    <button id="go" onclick="consult()">发起会诊</button>
+    <div id="status" class="status hidden"></div>
+  </div>
+
+  <div id="consensus" class="consensus hidden"></div>
+  <div id="cards"></div>
+
+  <div class="foot">五方会诊 · 各家回答由对应官方 API 生成 · 结果仅供参考</div>
+</div>
+
+<script>
+const COLORS = { "Kimi": "#4cd9a0", "GPT": "#74a9f7", "Gemini": "#f7b06b", "豆包": "#9b5de5", "千问": "#5bc8e8" };
+const ORDER = ["Kimi", "GPT", "Gemini", "豆包", "千问"];
+
+// 记住密码
+const pwdEl = document.getElementById("pwd");
+pwdEl.value = localStorage.getItem("five_ai_pwd") || "";
+
+function setStatus(t) {
+  const s = document.getElementById("status");
+  if (t) { s.textContent = t; s.classList.remove("hidden"); }
+  else s.classList.add("hidden");
+}
+
+function esc(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function render(data) {
+  const c = document.getElementById("consensus");
+  if (data.consensus) {
+    c.innerHTML = '<span class="tag">✅ 五方会诊结论（Kimi 总协调）</span>' + esc(data.consensus);
+    c.classList.remove("hidden");
+  } else c.classList.add("hidden");
+
+  const cards = document.getElementById("cards");
+  cards.innerHTML = "";
+  for (const name of ORDER) {
+    const div = document.createElement("div");
+    const color = COLORS[name] || "#888";
+    if (data.answers[name]) {
+      div.className = "model-card";
+      div.innerHTML = '<div class="name"><span class="dot" style="background:' + color + '"></span>' + name + '</div>'
+                    + '<div class="ans">' + esc(data.answers[name]) + '</div>';
+    } else {
+      div.className = "model-card missing";
+      const err = (data.errors && data.errors[name]) || "未返回";
+      div.innerHTML = '<div class="name"><span class="dot" style="background:#666"></span>' + name + ' · 缺席</div>'
+                    + '<div class="ans">本次未参与：' + esc(err.slice(0, 120)) + '</div>';
+    }
+    cards.appendChild(div);
+  }
+}
+
+async function consult() {
+  const password = pwdEl.value.trim();
+  const question = document.getElementById("q").value.trim();
+  if (!password) { alert("请输入访问密码"); return; }
+  if (!question) { alert("请输入问题"); return; }
+
+  localStorage.setItem("five_ai_pwd", password);
+  const btn = document.getElementById("go");
+  btn.disabled = true; btn.textContent = "五家思考中…";
+  setStatus("正在并行询问 Kimi / GPT / Gemini / 豆包 / 千问，约需 10–60 秒");
+  document.getElementById("cards").innerHTML = "";
+  document.getElementById("consensus").classList.add("hidden");
+
+  try {
+    const resp = await fetch("/api/consult", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password, question }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) { alert(data.error || ("请求失败 HTTP " + resp.status)); return; }
+    render(data);
+    setStatus(null);
+  } catch (e) {
+    alert("网络错误：" + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = "发起会诊";
+  }
+}
+</script>
+</body>
+</html>
