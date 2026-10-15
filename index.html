@@ -108,6 +108,26 @@
   }
   .chip.on { background: #efecff; color: var(--pri); border-color: #c9c0f7; }
   .chip.all { border-style: dashed; }
+  .chip .ver-label { display: block; font-size: 10px; font-weight: 400; color: #9a94b8; margin-top: 1px; }
+  .chip .arrow {
+    border: none; background: none; cursor: pointer; color: inherit; opacity: .55;
+    font-size: 10px; padding: 0 0 0 4px;
+  }
+  .chip .arrow:hover { opacity: 1; }
+  .ver-menu {
+    position: fixed; z-index: 60; background: #fff; border: 1px solid var(--line);
+    border-radius: 14px; box-shadow: 0 8px 30px rgba(60,50,140,.18);
+    padding: 6px; min-width: 240px;
+  }
+  .ver-opt {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 9px 12px; border-radius: 10px; cursor: pointer; font-size: 13px;
+  }
+  .ver-opt:hover { background: #f4f2ff; }
+  .ver-opt .nm { font-weight: 600; color: #2a2a3e; }
+  .ver-opt .ck { color: var(--pri); font-weight: 700; visibility: hidden; }
+  .ver-opt.sel .ck { visibility: visible; }
+  .ver-tag { font-size: 10.5px; color: #9a94b8; font-weight: 400; margin-left: 6px; }
   .file-chip {
     display: inline-flex; align-items: center; gap: 8px; background: #f0eeff;
     color: #555; border-radius: 10px; padding: 5px 12px; font-size: 12.5px; margin-bottom: 8px;
@@ -193,6 +213,43 @@ const ORDER = ["Kimi", "GPT", "Gemini", "豆包", "千问"];
 const LS_CONVS = "five_ai_convs", LS_ACTIVE = "five_ai_active";
 const modelState = {};
 for (const n of ORDER) modelState[n] = true;
+/* 每家可选模型版本（与后端 MODEL_VARIANTS 白名单保持一致） */
+const VARIANTS = {
+  "Kimi": [
+    ["kimi-k3", "K3 · 全能旗舰"],
+    ["kimi-k2.6", "K2.6 · 均衡"],
+    ["kimi-k2.7-code", "K2.7 Code · 代码"],
+    ["kimi-k2.7-code-highspeed", "K2.7 Code · 高速"]
+  ],
+  "GPT": [
+    ["gpt-6.1-sol", "GPT 6.1 Sol · 旗舰"],
+    ["gpt-6-sol", "GPT 6 Sol"],
+    ["gpt-5.5", "GPT 5.5 · 均衡"],
+    ["gpt-5.4-mini", "GPT 5.4 Mini · 快速"],
+    ["gpt-4o", "GPT 4o · 经典"]
+  ],
+  "Gemini": [
+    ["gemini-3.6-flash", "3.6 Flash · 快速"],
+    ["gemini-3.1-pro-preview", "3.1 Pro · 深度"],
+    ["gemini-2.5-pro", "2.5 Pro · 经典"],
+    ["gemini-2.5-flash", "2.5 Flash · 轻量"]
+  ],
+  "豆包": [
+    ["doubao-seed-2-1-pro-260915", "Seed 2.1 Pro · 旗舰"],
+    ["doubao-seed-2-1-turbo-260628", "Seed 2.1 Turbo · 快省"],
+    ["doubao-seed-2-1-lite-260915", "Seed 2.1 Lite · 轻量"],
+    ["doubao-seed-1-6-thinking-250615", "Seed 1.6 深度思考"],
+    ["doubao-seed-2-0-code-preview-260215", "Seed 2.0 Code · 代码"]
+  ],
+  "千问": [
+    ["qwen-plus", "Qwen Plus · 均衡"],
+    ["qwen-max", "Qwen Max · 最强"],
+    ["qwen-flash", "Qwen Flash · 快速"],
+    ["qwen-long", "Qwen Long · 长文档"]
+  ]
+};
+const verState = {};
+for (const n of ORDER) verState[n] = VARIANTS[n][0][0];
 
 /* ===== 数据：多对话 + 本地存储 ===== */
 function loadConvs() {
@@ -240,16 +297,46 @@ function renderConvList() {
   }
 }
 
-/* ===== 模型勾选 chips ===== */
+/* ===== 模型勾选 chips + 每家模型版本下拉 ===== */
+let openMenu = null;
+function closeVerMenu() {
+  if (openMenu) { openMenu.remove(); openMenu = null; }
+}
+document.addEventListener("click", e => {
+  if (openMenu && !openMenu.contains(e.target) && !e.target.closest(".chip .arrow")) closeVerMenu();
+});
+
+function openVerMenu(name, anchor) {
+  closeVerMenu();
+  const menu = document.createElement("div");
+  menu.className = "ver-menu";
+  for (const [vid, label] of VARIANTS[name]) {
+    const opt = document.createElement("div");
+    opt.className = "ver-opt" + (verState[name] === vid ? " sel" : "");
+    opt.innerHTML = '<span class="nm">' + esc(label) + '</span><span class="ck">✓</span>';
+    opt.onclick = () => { verState[name] = vid; closeVerMenu(); buildChips(); };
+    menu.appendChild(opt);
+  }
+  document.body.appendChild(menu);
+  const r = anchor.getBoundingClientRect();
+  const mh = menu.offsetHeight;
+  menu.style.left = Math.min(r.left, window.innerWidth - menu.offsetWidth - 8) + "px";
+  menu.style.top = (r.bottom + mh + 12 > window.innerHeight ? r.top - mh - 6 : r.bottom + 6) + "px";
+  openMenu = menu;
+}
+
 function buildChips() {
   const box = document.getElementById("models");
   box.innerHTML = "";
   for (const n of ORDER) {
-    const chip = document.createElement("button");
-    chip.type = "button";
+    const chip = document.createElement("span");
     chip.className = "chip" + (modelState[n] ? " on" : "");
-    chip.innerHTML = '<span class="cdot" style="background:' + COLORS[n] + '"></span>' + n;
+    const shortLabel = (VARIANTS[n].find(v => v[0] === verState[n]) || ["", ""])[1].split(" · ")[0];
+    chip.innerHTML = '<span class="cdot" style="background:' + COLORS[n] + '"></span>' + n
+      + '<button type="button" class="arrow" title="选择模型版本">▾</button>'
+      + '<span class="ver-label">' + esc(shortLabel) + '</span>';
     chip.onclick = () => { modelState[n] = !modelState[n]; buildChips(); };
+    chip.querySelector(".arrow").onclick = e => { e.stopPropagation(); openVerMenu(n, e.target); };
     box.appendChild(chip);
   }
   const all = document.createElement("button");
@@ -351,7 +438,7 @@ function renderChat() {
       if (m.consensus) html += '<div class="consensus"><span class="tag">✅ 会诊结论</span>' + esc(m.consensus) + '</div>';
       for (const n of ORDER) {
         if (m.answers && m.answers[n]) {
-          html += '<details class="model-detail"><summary><span class="cdot" style="background:' + COLORS[n] + '"></span>' + n + '</summary><div class="model-ans">' + esc(m.answers[n]) + '</div></details>';
+          html += '<details class="model-detail"><summary><span class="cdot" style="background:' + COLORS[n] + '"></span>' + n + (m.models_used && m.models_used[n] ? '<span class="ver-tag">' + esc(m.models_used[n]) + '</span>' : '') + '</summary><div class="model-ans">' + esc(m.answers[n]) + '</div></details>';
         }
       }
       if (m.errors) {
@@ -406,7 +493,7 @@ async function send() {
   btn.disabled = true;
   setStatus("正在询问 " + picks.join(" / ") + "，约需 10–120 秒…");
 
-  const payload = JSON.stringify({ password, question, models: picks, history: hist.slice(-6), file: filePayload })
+  const payload = JSON.stringify({ password, question, models: picks, versions: verState, history: hist.slice(-6), file: filePayload })
     .replace(/[\u007f-\uffff]/g, c => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
 
   let data = null, lastErr = null;
@@ -424,7 +511,7 @@ async function send() {
   btn.disabled = false;
   if (!data) { alert("网络错误：" + (lastErr ? lastErr.message : "未知") + "，请重试"); setStatus(null); return; }
 
-  conv.msgs.push({ role: "assistant", consensus: data.consensus, answers: data.answers, errors: data.errors });
+  conv.msgs.push({ role: "assistant", consensus: data.consensus, answers: data.answers, errors: data.errors, models_used: data.models_used || {} });
   saveConvs(); renderChat();
   setStatus(null);
 }
